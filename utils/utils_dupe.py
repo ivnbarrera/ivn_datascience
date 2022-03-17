@@ -155,7 +155,7 @@ def deduping_function(fields, training_file, settings_file,
             deduper = dedupe.StaticDedupe(f)
     else:
         deduper = dedupe.Dedupe(fields)
-        deduper.prepare_training(data)
+        deduper.prepare_training(input_dict)
         if os.path.exists(training_file):
             print ('reading labeled examples from ',format(training_file))
             with open(training_file) as tf:
@@ -186,7 +186,7 @@ def deduping_function(fields, training_file, settings_file,
     
     cluster_membership = {}
     for cluster_id, (records, scores) in enumerate(clustered_dupes):
-        rcluster = [data[c] for c in records]
+        rcluster = [input_dict[c] for c in records]
         canonical_rep = dedupe.canonicalize(rcluster)
         for record_id, score in zip(records, scores):
             cluster_membership[record_id] = {
