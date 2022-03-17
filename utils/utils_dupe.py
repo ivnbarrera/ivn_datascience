@@ -134,7 +134,10 @@ def append_info(df_original, df_append, ID_column, append_columns, mode='left'):
     )) 
     return df_original
 
-def deduping_function(fields, training_file, settings_file, input_file, output_file, input_dict):
+def deduping_function(fields, training_file, settings_file,
+                      input_dict, threshold=0.5,
+                      active_labeling=True, pairs=None, save_settings=True
+                      ):
     """
     Function to dedupe rows given a
     fields: list of dictionaries of fields relevant for the training
@@ -152,74 +155,45 @@ def deduping_function(fields, training_file, settings_file, input_file, output_f
             deduper = dedupe.StaticDedupe(f)
     else:
         deduper = dedupe.Dedupe(fields)
-        deduper.sample(input_dict)
+        deduper.prepare_training(data)
         if os.path.exists(training_file):
             print ('reading labeled examples from ',format(training_file))
             with open(training_file) as tf:
                 deduper.readTraining(tf)
 
-        print('starting active labeling...')
-        dedupe.consoleLabel(deduper)
+        if active_labeling:
+            print('starting active labeling...')
+            dedupe.console_label(deduper)
+        else:
+            if not pairs:
+                raise AssertionError("If not active_labeling you must provide pairs")
+
         deduper.train()
 
-        print('writing training file')
-        with open(training_file, 'w') as tf:
-            deduper.writeTraining(tf)
-        print('writing settings file')
-        with open(settings_file, 'wb') as sf:
-            deduper.writeSettings(sf)
+        if save_settings:
+            print('writing training file')
+            with open(training_file, 'w') as tf:
+                deduper.writeTraining(tf)
+            print('writing settings file')
+            with open(settings_file, 'wb') as sf:
+                deduper.writeSettings(sf)
 
-    print('blocking...')
-    threshold = deduper.threshold(input_dict, recall_weight=2)
+    # print('blocking...')
+    # threshold = deduper.threshold(input_dict, recall_weight=2)
     print ('clustering...')
-    clustered_dupes = deduper.match(input_dict, threshold)
+    clustered_dupes = deduper.partition(input_dict, threshold)
     print ('# duplicate sets {}'.format(len(clustered_dupes)))
     
     cluster_membership = {}
-    cluster_id = 0
-    for (cluster_id, cluster) in enumerate(clustered_dupes):
-        id_set, scores = cluster
-        cluster_d = [input_dict[c] for c in id_set]
-        canonical_rep = dedupe.canonicalize(cluster_d)
-        for record_id, score in zip(id_set, scores) :
+    for cluster_id, (records, scores) in enumerate(clustered_dupes):
+        rcluster = [data[c] for c in records]
+        canonical_rep = dedupe.canonicalize(rcluster)
+        for record_id, score in zip(records, scores):
             cluster_membership[record_id] = {
-                "cluster id" : cluster_id,
-                "canonical representation" : canonical_rep,
-                "confidence": score
+                "Cluster ID": cluster_id,
+                "confidence_score": score,
+                "canonical_rep": canonical_rep,
             }
 
-    singleton_id = cluster_id + 1
-    
-    with open(output_file, 'w') as f_output:
-        writer = csv.writer(f_output)
-
-        with open(input_file) as f_input :
-            reader = csv.reader(f_input)
-
-            heading_row = next(reader)
-            heading_row.insert(0, 'confidence_score')
-            heading_row.insert(0, 'Cluster ID')
-            canonical_keys = canonical_rep.keys()
-            for key in canonical_keys:
-                heading_row.append('canonical_' + key)
-
-            writer.writerow(heading_row)
-
-            for row in reader:
-                row_id = int(row[0])
-                if row_id in cluster_membership :
-                    cluster_id = cluster_membership[row_id]["cluster id"]
-                    canonical_rep = cluster_membership[row_id]["canonical representation"]
-                    row.insert(0, cluster_membership[row_id]['confidence'])
-                    row.insert(0, cluster_id)
-                    for key in canonical_keys:
-                        row.append(canonical_rep[key].encode('utf8'))
-                else:
-                    row.insert(0, None)
-                    row.insert(0, singleton_id)
-                    singleton_id += 1
-                    for key in canonical_keys:
-                        row.append(None)
-                writer.writerow(row)
-
     print('deduping sucessfully finished')
+    return cluster_membership

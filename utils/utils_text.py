@@ -6,10 +6,34 @@ import math
 import itertools
 import re
 from itertools import compress
+
 from nltk.corpus import wordnet
 import nltk
+from nltk.tokenize import RegexpTokenizer
+from nltk.stem import WordNetLemmatizer
+from spellchecker import SpellChecker
+
 import matplotlib.pyplot as plt
 
+tokenizer = RegexpTokenizer(r"\w+")
+sp_checker = SpellChecker(language='en')
+wnl = WordNetLemmatizer()
+
+def get_wordnet_pos(word):
+    """Map POS tag to first character lemmatize() accepts"""
+    tag = nltk.pos_tag([word])[0][1][0].upper()
+    tag_dict = {"J": wordnet.ADJ,
+                "N": wordnet.NOUN,
+                "V": wordnet.VERB,
+                "R": wordnet.ADV}
+
+    return tag_dict.get(tag, wordnet.NOUN)
+
+def remove_stop_words(text, stopwords, lemmatize=True):
+    if lemmatize:
+        text = " ".join([wnl.lemmatize(w, get_wordnet_pos(w)) for w in nltk.word_tokenize(text)])
+    pattern = re.compile(r'\b(' + r'|'.join(stopwords)+ r')\b\s*')
+    return pattern.sub('', text)
 
 def process_phone(phone, country_code='1'):
     """get only numbers of phones"""
@@ -24,7 +48,44 @@ def process_phone(phone, country_code='1'):
             new_phone = new_phone[1:]
         return new_phone
 
-def pre_process_text(text):
+def preprocess_text(text, lower=True,
+                    punctuation=False,
+                    spelling=False,
+                    lemmatization=False,
+                    remove_stop=False, stopwords=None):
+    if text:
+        if lower:
+            text = text.lower()
+        text = re.sub('  +', ' ', text)
+        text = re.sub('\n', ' ', text)
+        text = text.strip().strip('"').strip("'").lower().strip()
+        words = nltk.word_tokenize(text)
+        # remove punctuation
+        if punctuation:
+            words = tokenizer.tokenize(text)
+        # spelling correction
+        if spelling:
+            wlist = []
+            for word in words:
+                correct_word = sp_checker.correction(word)
+                wlist.append(correct_word)
+            words = wlist
+
+        if lemmatization:
+            words = [wnl.lemmatize(w, get_wordnet_pos(w)) for w in words]
+
+        if remove_stop:
+            if not stopwords:
+                stopwords = nltk.corpus.stopwords.words('english')
+            concat = remove_stop_words(" ".join(words), stopwords, lemmatize=False)
+            words = nltk.word_tokenize(concat)
+
+
+        text = " ".join(words)
+
+    return text
+
+def preprocess_text_noTags_noDigits(text):
     """ pre process any text"""
     # lowercase
     if text:
@@ -37,16 +98,6 @@ def pre_process_text(text):
         text=re.sub("(\\d|\\W)+"," ",text)
     
     return text
-
-def get_wordnet_pos(word):
-    """Map POS tag to first character lemmatize() accepts"""
-    tag = nltk.pos_tag([word])[0][1][0].upper()
-    tag_dict = {"J": wordnet.ADJ,
-                "N": wordnet.NOUN,
-                "V": wordnet.VERB,
-                "R": wordnet.ADV}
-
-    return tag_dict.get(tag, wordnet.NOUN)
 
 def top_tfidf_feats(row, features, top_n=25):
     ''' Get top n tfidf values in row and return them with their corresponding feature names.'''
