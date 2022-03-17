@@ -167,6 +167,7 @@ def deduping_function(fields, training_file, settings_file,
         else:
             if not pairs:
                 raise AssertionError("If not active_labeling you must provide pairs")
+            deduper.mark_pairs(pairs)
 
         deduper.train()
 
