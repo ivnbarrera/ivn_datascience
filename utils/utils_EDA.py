@@ -68,5 +68,5 @@ def plot_num_hist(data, X_num, y, n_cols, figsize=(12,4)):
     for i, col in enumerate(X_num):
         ax = fig.add_subplot(gs[i])
         for name, gr in data.groupby(y):
-            sns.distplot(gr[col].dropna(), ax=ax)
+            sns.kdeplot(gr[col].dropna(), ax=ax)
     return fig
