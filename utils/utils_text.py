@@ -12,12 +12,14 @@ import nltk
 from nltk.tokenize import RegexpTokenizer
 from nltk.stem import WordNetLemmatizer
 from spellchecker import SpellChecker
+from nltk.stem import PorterStemmer
 
 import matplotlib.pyplot as plt
 
 tokenizer = RegexpTokenizer(r"\w+")
 sp_checker = SpellChecker(language='en')
 wnl = WordNetLemmatizer()
+ps = PorterStemmer()
 
 def get_wordnet_pos(word):
     """Map POS tag to first character lemmatize() accepts"""
@@ -52,6 +54,7 @@ def preprocess_text(text, lower=True,
                     punctuation=False,
                     spelling=False,
                     lemmatization=False,
+                    stemming=False,
                     remove_stop=False, stopwords=None):
     if text:
         if lower:
@@ -74,6 +77,8 @@ def preprocess_text(text, lower=True,
         if lemmatization:
             words = [wnl.lemmatize(w, get_wordnet_pos(w)) for w in words]
 
+        if stemming:
+            words = [ps.stem(w) for w in words]
         if remove_stop:
             if not stopwords:
                 stopwords = nltk.corpus.stopwords.words('english')
