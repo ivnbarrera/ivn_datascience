@@ -127,13 +127,11 @@ def top_mean_feats(Xtr, features, grp_ids=None, min_tfidf=0.0001, top_n=25):
 def top_feats_by_class(Xtr, y, features, min_tfidf=0.0001, top_n=25):
     ''' Return a list of dfs, where each df holds top_n features and their mean tfidf value
         calculated across documents with the same class label. '''
-    dfs = []
+    dfs = {}
     labels = np.unique(y)
     for label in labels:
         ids = np.where(y==label)
-        feats_df = top_mean_feats(Xtr, features, ids, min_tfidf=min_tfidf, top_n=top_n)
-        feats_df.label = label
-        dfs.append(feats_df)
+        dfs[label] = top_mean_feats(Xtr, features, ids, min_tfidf=min_tfidf, top_n=top_n)
     return dfs
 
 def plot_tfidf_classfeats_h(dfs):
